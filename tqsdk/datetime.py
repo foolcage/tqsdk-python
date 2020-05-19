@@ -8,6 +8,17 @@ __author__ = 'limin'
 
 import datetime
 import time
+from typing import Union
+
+
+def _to_timestamp(dt: Union[str, int]):
+    """将参数格式统一转为 timestamp nano 秒数
+    仅供本文件中使用
+    """
+    if isinstance(dt, str):
+        return int(datetime.datetime.strptime(dt, "%Y-%m-%d %H:%M:%S.%f").timestamp() * 1e9)
+    else:
+        return dt
 
 
 def _get_trading_day_start_time(trading_day):
@@ -37,11 +48,10 @@ def _get_trading_day_from_timestamp(timestamp):
     return begin_mark + days * 86400000000000
 
 
-def _get_trading_timestamp(quote, current_datetime: str):
+def _get_trading_timestamp(quote, current_datetime: Union[str, int]):
     """ 将 quote 在 current_datetime 所在交易日的所有可交易时间段转换为纳秒时间戳(tqsdk内部使用的时间戳统一为纳秒)并返回 """
     # 获取当前交易日时间戳
-    current_trading_day_timestamp = _get_trading_day_from_timestamp(
-        int(datetime.datetime.strptime(current_datetime, "%Y-%m-%d %H:%M:%S.%f").timestamp() * 1e6) * 1000)
+    current_trading_day_timestamp = _get_trading_day_from_timestamp(_to_timestamp(current_datetime))
     # 获取上一交易日时间戳
     last_trading_day_timestamp = _get_trading_day_from_timestamp(
         _get_trading_day_start_time(current_trading_day_timestamp) - 1)
@@ -66,7 +76,7 @@ def _get_period_timestamp(real_date_timestamp, period_str):
     return period_timestamp
 
 
-def _is_in_trading_time(quote, current_datetime, local_time_record):
+def _is_in_trading_time(quote, current_datetime: Union[str, int], local_time_record):
     """ 判断是否在可交易时间段内，需在quote已收到行情后调用本函数"""
     # 只在需要用到可交易时间段时(即本函数中)才调用_get_trading_timestamp()
     trading_timestamp = _get_trading_timestamp(quote, current_datetime)
@@ -79,10 +89,11 @@ def _is_in_trading_time(quote, current_datetime, local_time_record):
     return False
 
 
-def _get_trade_timestamp(current_datetime, local_time_record):
+def _get_trade_timestamp(current_datetime: Union[str, int], local_time_record):
     # 根据最新行情时间获取模拟的(预估的)当前交易所纳秒时间戳（tqsdk内部使用的时间戳统一为纳秒）
     # 如果local_time_record为nan，則不加时间差
-    return int((datetime.datetime.strptime(current_datetime,
-                                           "%Y-%m-%d %H:%M:%S.%f").timestamp() + (
-                    0 if local_time_record != local_time_record else (
-                            time.time() - local_time_record))) * 1e6) * 1000
+    current_timestamp = _to_timestamp(current_datetime)
+    if local_time_record != local_time_record:
+        return current_timestamp
+    else:
+        return current_timestamp + (time.time() - local_time_record) * 1e9
