@@ -234,8 +234,8 @@ class TestLib(unittest.TestCase):
             # 3 2020.2.18 交易所通知cu这段时间没有夜盘，因此之前set的手数到第二个交易日开盘后下单
             while max(quote1.datetime, quote2.datetime, quote3.datetime) < "2020-02-18 09:00:00.0000":
                 api.wait_update()
-            self.assertEqual(len(orders), 4)
-            self.assertEqual(position1.pos, 1)
+            self.assertEqual(len(orders), 5)
+            self.assertEqual(position1.pos, 4)
             self.assertEqual(position2.pos, 5)
             self.assertEqual(position3.pos, 3)
             # 4 cu在9点开盘下单，IF在9:30开盘下单
