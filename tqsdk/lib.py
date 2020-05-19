@@ -7,6 +7,7 @@ from asyncio import gather
 from typing import Optional
 
 from tqsdk.api import TqApi
+from tqsdk.backtest import TqBacktest
 from tqsdk.channel import TqChan
 from tqsdk.datetime import _is_in_trading_time
 from tqsdk.utils import _generate_uuid
@@ -162,8 +163,8 @@ class TargetPosTask(object, metaclass=TargetPosTaskSingleton):
 
     async def _update_time_from_md(self):
         """监听行情更新并记录当时本地时间的task"""
-        async with self._api.register_update_notify(self._quote) as quote_update_chan:
-            async for _ in quote_update_chan:  # quote有更新时:更新记录的时间
+        async with self._api.register_update_notify() as update_chan:
+            async for _ in update_chan:  # quote有更新时:更新记录的时间
                 self._local_time_record = time.time() - 0.005  # 更新最新行情时间时的本地时间
                 self._local_time_record_update_chan.send_nowait(True)  # 通知记录的时间有更新
 
@@ -175,8 +176,16 @@ class TargetPosTask(object, metaclass=TargetPosTaskSingleton):
                 #   如果当前时间（模拟交易所时间）不在交易时间段内，则：等待直到行情更新
                 #   行情更新（即下一交易时段开始）后：获取target_pos最新的目标仓位, 开始调整仓位
 
-                # 如果不在可交易时间段内: 等待更新
-                while not _is_in_trading_time(self._quote, self._quote["datetime"], self._local_time_record):
+                # 如果不在可交易时间段内（回测时用 backtest 下发的时间判断，实盘使用 quote 行情判断）: 等待更新
+                while True:
+                    if isinstance(self._api._backtest, TqBacktest):
+                        cur_dt = self._api._data.get("_tqsdk_backtest", {}).get("current_dt", float("nan"))
+                        time_record = float("nan")
+                    else:
+                        cur_dt = self._quote["datetime"]
+                        time_record = self._local_time_record
+                    if _is_in_trading_time(self._quote, cur_dt, time_record):
+                        break
                     await self._local_time_record_update_chan.recv()
 
                 target_pos = self._pos_chan.recv_latest(target_pos)  # 获取最后一个target_pos目标仓位
