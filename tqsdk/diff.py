@@ -56,7 +56,7 @@ def _merge_diff(result, diff, prototype, persist, notify_update_diff=False):
     if len(diff) != 0:
         diff_obj = True
         if notify_update_diff:
-            diff_obj = _gen_diff_obj(diff, result["_path"])
+            diff_obj = _gen_diff_obj(diff.copy(), result["_path"])
         _notify_update(result, False, diff_obj)
 
 
